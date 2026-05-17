@@ -3,20 +3,99 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: DokMart - Digital document marketplace API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: documents
+    description: Document catalog
+  - name: categories
+    description: Document categories
+  - name: levels
+    description: Document levels
+  - name: orders
+    description: Orders and checkout
+  - name: admin
+    description: Admin operations
+  - name: storage
+    description: File storage operations
+  - name: sellers
+    description: Seller applications
 paths:
+  /seller-applications:
+    post:
+      operationId: createSellerApplication
+      tags: [sellers]
+      summary: Submit a seller application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SellerApplicationBody"
+      responses:
+        "201":
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SellerApplication"
+        "400":
+          description: Validation error
+
+  /admin/seller-applications:
+    get:
+      operationId: listSellerApplications
+      tags: [sellers]
+      summary: List all seller applications (admin)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of applications
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSellerApplicationsResponse"
+
+  /admin/seller-applications/{id}:
+    patch:
+      operationId: reviewSellerApplication
+      tags: [sellers]
+      summary: Review a seller application (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewSellerApplicationBody"
+      responses:
+        "200":
+          description: Updated application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SellerApplication"
+        "404":
+          description: Not found
+
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +103,444 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List documents with optional filters
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: level
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 12
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListDocumentsResponse"
+
+  /documents/featured:
+    get:
+      operationId: listFeaturedDocuments
+      tags: [documents]
+      summary: List featured documents for homepage
+      responses:
+        "200":
+          description: Featured documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Document"
+
+  /documents/{id}:
+    get:
+      operationId: getDocument
+      tags: [documents]
+      summary: Get a single document by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateDocument
+      tags: [documents]
+      summary: Update a document (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDocumentBody"
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      summary: Delete a document (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /documents/admin/create:
+    post:
+      operationId: createDocument
+      tags: [documents]
+      summary: Create a new document (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentBody"
+      responses:
+        "201":
+          description: Created document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /documents/{id}/files:
+    get:
+      operationId: getDocumentFiles
+      tags: [documents]
+      summary: List files attached to a document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of document files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentFile"
+    post:
+      operationId: addDocumentFile
+      tags: [documents]
+      summary: Attach a file to a document (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddDocumentFileBody"
+      responses:
+        "201":
+          description: Created file entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentFile"
+
+  /documents/{id}/files/{fileId}:
+    delete:
+      operationId: deleteDocumentFile
+      tags: [documents]
+      summary: Remove a file from a document (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestUploadUrlBody"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestUploadUrlResponse"
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create a new category (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryBody"
+      responses:
+        "201":
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+
+  /levels:
+    get:
+      operationId: listLevels
+      tags: [levels]
+      summary: List all levels
+      responses:
+        "200":
+          description: List of levels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListLevelsResponse"
+    post:
+      operationId: createLevel
+      tags: [levels]
+      summary: Create a new level (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLevelBody"
+      responses:
+        "201":
+          description: Created level
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Level"
+
+  /categories/{id}:
+    delete:
+      operationId: deleteCategory
+      tags: [categories]
+      summary: Delete a category (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /levels/{id}:
+    delete:
+      operationId: deleteLevel
+      tags: [levels]
+      summary: Delete a level (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get an order by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderWithItems"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/orders:
+    get:
+      operationId: listAdminOrders
+      tags: [admin]
+      summary: List all orders for admin
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of all orders with customer info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAdminOrdersResponse"
+
+  /admin/orders/{id}:
+    get:
+      operationId: getAdminOrder
+      tags: [admin]
+      summary: Get order details for admin (with payment proof)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order with payment proof
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrderDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: reviewOrder
+      tags: [admin]
+      summary: Approve or reject an order (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewOrderBody"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Dashboard statistics
+      responses:
+        "200":
+          description: Admin statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +551,585 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        subject:
+          type: string
+        level:
+          type: string
+        semester:
+          type: ["string", "null"]
+        docType:
+          type: ["string", "null"]
+        categoryId:
+          type: ["integer", "null"]
+        categoryName:
+          type: ["string", "null"]
+        price:
+          type: integer
+        previewUrl:
+          type: ["string", "null"]
+        fileUrl:
+          type: ["string", "null"]
+        isFeatured:
+          type: boolean
+        pageCount:
+          type: ["integer", "null"]
+        downloadCount:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - description
+        - subject
+        - level
+        - price
+        - isFeatured
+        - downloadCount
+        - createdAt
+
+    ListDocumentsResponse:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - documents
+        - total
+        - page
+        - totalPages
+
+    CreateDocumentBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        subject:
+          type: string
+        level:
+          type: string
+        semester:
+          type: ["string", "null"]
+        docType:
+          type: ["string", "null"]
+        categoryId:
+          type: ["integer", "null"]
+        price:
+          type: integer
+        previewUrl:
+          type: ["string", "null"]
+        fileUrl:
+          type: ["string", "null"]
+        isFeatured:
+          type: boolean
+          default: false
+        pageCount:
+          type: ["integer", "null"]
+      required:
+        - title
+        - description
+        - subject
+        - level
+        - price
+
+    UpdateDocumentBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        subject:
+          type: string
+        level:
+          type: string
+        semester:
+          type: ["string", "null"]
+        docType:
+          type: ["string", "null"]
+        categoryId:
+          type: ["integer", "null"]
+        price:
+          type: integer
+        previewUrl:
+          type: ["string", "null"]
+        fileUrl:
+          type: ["string", "null"]
+        isFeatured:
+          type: boolean
+        pageCount:
+          type: ["integer", "null"]
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: ["string", "null"]
+        documentCount:
+          type: integer
+      required:
+        - id
+        - name
+        - slug
+        - documentCount
+
+    CreateCategoryBody:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: ["string", "null"]
+      required:
+        - name
+        - slug
+
+    Level:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        group:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+        documentCount:
+          type: integer
+      required:
+        - id
+        - name
+        - slug
+        - sortOrder
+        - documentCount
+
+    ListLevelsResponse:
+      type: array
+      items:
+        $ref: "#/components/schemas/Level"
+
+    CreateLevelBody:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        group:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+          default: 0
+      required:
+        - name
+        - slug
+
+    DeleteLevelParams:
+      type: object
+      properties:
+        id:
+          type: integer
+      required:
+        - id
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        documentId:
+          type: integer
+        documentTitle:
+          type: string
+        documentSubject:
+          type: string
+        documentLevel:
+          type: string
+        price:
+          type: integer
+        fileUrl:
+          type: ["string", "null"]
+      required:
+        - id
+        - documentId
+        - documentTitle
+        - documentSubject
+        - documentLevel
+        - price
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        customerPhone:
+          type: string
+        totalAmount:
+          type: integer
+        status:
+          type: string
+        paymentMethod:
+          type: ["string", "null"]
+        adminNote:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - customerName
+        - customerEmail
+        - customerPhone
+        - totalAmount
+        - status
+        - createdAt
+        - updatedAt
+
+    OrderWithItems:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        customerPhone:
+          type: string
+        totalAmount:
+          type: integer
+        status:
+          type: string
+        paymentMethod:
+          type: ["string", "null"]
+        adminNote:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+      required:
+        - id
+        - customerName
+        - customerEmail
+        - customerPhone
+        - totalAmount
+        - status
+        - createdAt
+        - updatedAt
+        - items
+
+    AdminOrderDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        customerPhone:
+          type: string
+        totalAmount:
+          type: integer
+        status:
+          type: string
+        paymentMethod:
+          type: ["string", "null"]
+        adminNote:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+      required:
+        - id
+        - customerName
+        - customerEmail
+        - customerPhone
+        - totalAmount
+        - status
+        - createdAt
+        - updatedAt
+        - items
+
+    ListAdminOrdersResponse:
+      type: object
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - orders
+        - total
+        - page
+        - totalPages
+
+    ReviewOrderBody:
+      type: object
+      properties:
+        status:
+          type: string
+        adminNote:
+          type: ["string", "null"]
+      required:
+        - status
+
+    RequestUploadUrlBody:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+      required:
+        - name
+        - size
+        - contentType
+
+    RequestUploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - uploadURL
+        - objectPath
+
+    DocumentFile:
+      type: object
+      properties:
+        id:
+          type: integer
+        documentId:
+          type: integer
+        objectPath:
+          type: string
+        fileName:
+          type: string
+        fileSize:
+          type: ["integer", "null"]
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - documentId
+        - objectPath
+        - fileName
+        - sortOrder
+        - createdAt
+
+    AddDocumentFileBody:
+      type: object
+      properties:
+        objectPath:
+          type: string
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        sortOrder:
+          type: integer
+          default: 0
+      required:
+        - objectPath
+        - fileName
+
+    GetDocumentFilesParams:
+      type: object
+      properties:
+        id:
+          type: integer
+      required:
+        - id
+
+    DeleteDocumentFileParams:
+      type: object
+      properties:
+        id:
+          type: integer
+        fileId:
+          type: integer
+      required:
+        - id
+        - fileId
+
+    SellerApplicationBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        productType:
+          type: string
+        description:
+          type: string
+        portfolioUrl:
+          type: ["string", "null"]
+        password:
+          type: string
+      required:
+        - name
+        - email
+        - phone
+        - productType
+        - description
+        - password
+
+    SellerApplication:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        productType:
+          type: string
+        description:
+          type: string
+        portfolioUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+        adminNote:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - phone
+        - productType
+        - description
+        - status
+        - createdAt
+
+    ListSellerApplicationsResponse:
+      type: object
+      properties:
+        applications:
+          type: array
+          items:
+            $ref: "#/components/schemas/SellerApplication"
+        total:
+          type: integer
+      required:
+        - applications
+        - total
+
+    ReviewSellerApplicationBody:
+      type: object
+      properties:
+        status:
+          type: string
+        adminNote:
+          type: ["string", "null"]
+      required:
+        - status
+
+    AdminStats:
+      type: object
+      properties:
+        totalDocuments:
+          type: integer
+        totalOrders:
+          type: integer
+        pendingPayments:
+          type: integer
+        approvedOrders:
+          type: integer
+        totalRevenueCfa:
+          type: integer
+        recentOrders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        topDocuments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+      required:
+        - totalDocuments
+        - totalOrders
+        - pendingPayments
+        - approvedOrders
+        - totalRevenueCfa
+        - recentOrders
+        - topDocuments
