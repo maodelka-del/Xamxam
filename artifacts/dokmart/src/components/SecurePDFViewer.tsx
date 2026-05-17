@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as pdfjsLib from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { Loader2, AlertTriangle, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, ShieldAlert } from "lucide-react";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+pdfjsLib.GlobalWorkerOptions.workerSrc = `${BASE}/pdf.worker.min.mjs`;
 
 interface SecurePDFViewerProps {
   url: string;

@@ -7,6 +7,9 @@ pnpm install --frozen-lockfile
 echo "==> Building lib packages..."
 pnpm run typecheck:libs
 
+echo "==> Copying PDF.js worker to public dir..."
+cp artifacts/dokmart/node_modules/pdfjs-dist/build/pdf.worker.min.mjs artifacts/dokmart/public/pdf.worker.min.mjs
+
 echo "==> Building frontend (dokmart)..."
 pnpm --filter @workspace/dokmart run build
 
