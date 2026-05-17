@@ -1,7 +1,9 @@
 import { useRoute, useSearch, Link } from "wouter";
-import { ArrowLeft, Download, AlertTriangle, Loader2, BookOpen, FileText } from "lucide-react";
+import { ArrowLeft, Download, AlertTriangle, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import SecurePDFViewer from "@/components/SecurePDFViewer";
+
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 export default function PDFViewer() {
   const [, params] = useRoute("/order/:orderId/view/:fileId");
@@ -12,9 +14,6 @@ export default function PDFViewer() {
   const fileId = parseInt(params?.fileId ?? "0", 10);
   const email = urlParams.get("email") ?? "";
   const fileName = urlParams.get("name") ?? "Document";
-
-  const [iframeError, setIframeError] = useState(false);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   if (!orderId || !fileId || !email) {
     return (
@@ -31,14 +30,14 @@ export default function PDFViewer() {
     );
   }
 
-  const viewUrl = `/api/orders/${orderId}/view-file/${fileId}?email=${encodeURIComponent(email)}`;
+  const viewUrl = `${BASE}/api/orders/${orderId}/view-file/${fileId}?email=${encodeURIComponent(email)}`;
   const downloadUrl = `${viewUrl}&download=1`;
   const backUrl = `/order/${orderId}?email=${encodeURIComponent(email)}`;
   const displayName = decodeURIComponent(fileName);
 
   return (
     <div className="min-h-screen bg-zinc-900 flex flex-col">
-      {/* Premium toolbar */}
+      {/* Toolbar */}
       <div className="sticky top-0 z-20 bg-zinc-800/95 backdrop-blur-sm border-b border-zinc-700 flex items-center gap-3 px-4 py-3 shadow-xl">
         <Link href={backUrl}>
           <button className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors group">
@@ -67,46 +66,13 @@ export default function PDFViewer() {
         </a>
       </div>
 
-      {/* PDF Viewer */}
-      <div className="flex-1 relative bg-zinc-900">
-        {!iframeLoaded && !iframeError && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-2xl bg-zinc-800 flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-              <p className="text-zinc-400 text-sm font-medium">Chargement du document...</p>
-              <p className="text-zinc-600 text-xs mt-1">Veuillez patienter</p>
-            </div>
-          </div>
-        )}
-        {iframeError ? (
-          <div className="absolute inset-0 flex items-center justify-center px-4">
-            <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-8 text-center max-w-sm shadow-2xl">
-              <div className="w-14 h-14 rounded-2xl bg-yellow-500/10 flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-7 h-7 text-yellow-400" />
-              </div>
-              <h3 className="font-bold text-white text-lg mb-2">Affichage impossible</h3>
-              <p className="text-sm text-zinc-400 mb-6">
-                Votre navigateur ne peut pas afficher ce PDF directement. Téléchargez-le pour le lire hors-ligne.
-              </p>
-              <a href={downloadUrl} download className="block">
-                <Button className="gap-2 w-full">
-                  <Download className="w-4 h-4" /> Télécharger le PDF
-                </Button>
-              </a>
-            </div>
-          </div>
-        ) : (
-          <iframe
-            src={viewUrl}
-            className="w-full h-full border-0"
-            style={{ minHeight: "calc(100vh - 61px)" }}
-            title={displayName}
-            onLoad={() => setIframeLoaded(true)}
-            onError={() => setIframeError(true)}
-          />
-        )}
+      {/* Secure PDF Viewer */}
+      <div className="flex-1 overflow-auto bg-zinc-900 py-8 px-4">
+        <SecurePDFViewer
+          url={viewUrl}
+          title={displayName}
+          className="w-full max-w-3xl mx-auto"
+        />
       </div>
     </div>
   );

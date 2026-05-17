@@ -582,6 +582,8 @@ components:
           type: ["string", "null"]
         price:
           type: integer
+        downloadPrice:
+          type: ["integer", "null"]
         previewUrl:
           type: ["string", "null"]
         fileUrl:
@@ -643,6 +645,8 @@ components:
           type: ["integer", "null"]
         price:
           type: integer
+        downloadPrice:
+          type: ["integer", "null"]
         previewUrl:
           type: ["string", "null"]
         fileUrl:
@@ -678,6 +682,8 @@ components:
           type: ["integer", "null"]
         price:
           type: integer
+        downloadPrice:
+          type: ["integer", "null"]
         previewUrl:
           type: ["string", "null"]
         fileUrl:

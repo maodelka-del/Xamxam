@@ -13,6 +13,7 @@ export const documentsTable = pgTable("documents", {
   categoryId: integer("category_id"),
   sellerId: integer("seller_id"),
   price: integer("price").notNull(),
+  downloadPrice: integer("download_price"),
   previewUrl: text("preview_url"),
   fileUrl: text("file_url"),
   isFeatured: boolean("is_featured").notNull().default(false),

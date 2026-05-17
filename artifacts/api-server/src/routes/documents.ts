@@ -27,6 +27,7 @@ const DOC_SELECT = {
   sellerId: documentsTable.sellerId,
   categoryName: categoriesTable.name,
   price: documentsTable.price,
+  downloadPrice: documentsTable.downloadPrice,
   previewUrl: documentsTable.previewUrl,
   fileUrl: documentsTable.fileUrl,
   isFeatured: documentsTable.isFeatured,
@@ -100,6 +101,7 @@ router.post("/documents/admin/create", async (req, res): Promise<void> => {
     categoryId: parsed.data.categoryId ?? null,
     sellerId: sellerIdNum,
     price: parsed.data.price,
+    downloadPrice: (parsed.data as any).downloadPrice ?? null,
     previewUrl: parsed.data.previewUrl ?? null,
     fileUrl: parsed.data.fileUrl ?? null,
     isFeatured: parsed.data.isFeatured ?? false,
@@ -148,6 +150,7 @@ router.patch("/documents/:id", async (req, res): Promise<void> => {
   if (parsed.data.docType !== undefined) updates.docType = parsed.data.docType;
   if (parsed.data.categoryId !== undefined) updates.categoryId = parsed.data.categoryId;
   if (parsed.data.price !== undefined) updates.price = parsed.data.price;
+  if ((parsed.data as any).downloadPrice !== undefined) updates.downloadPrice = (parsed.data as any).downloadPrice;
   if (parsed.data.previewUrl !== undefined) updates.previewUrl = parsed.data.previewUrl;
   if (parsed.data.fileUrl !== undefined) updates.fileUrl = parsed.data.fileUrl;
   if (parsed.data.isFeatured !== undefined) updates.isFeatured = parsed.data.isFeatured;

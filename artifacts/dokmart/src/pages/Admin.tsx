@@ -240,6 +240,7 @@ const docSchema = z.object({
   docType: z.string().optional(),
   description: z.string().optional(),
   price: z.coerce.number().min(0),
+  downloadPrice: z.coerce.number().min(0).optional(),
   isFree: z.boolean().default(false),
   isFeatured: z.boolean().default(false),
   extraField: z.string().optional(),
@@ -653,7 +654,7 @@ function AddDocumentForm({ onClose, onCreate, levels, categories }: {
                     >
                       <span className="text-xl block mb-1">🆓</span>
                       <span className={`text-sm font-bold block ${field.value ? "text-green-700" : "text-foreground"}`}>Gratuit</span>
-                      <span className="text-xs text-muted-foreground block mt-0.5">Téléchargement libre</span>
+                      <span className="text-xs text-muted-foreground block mt-0.5">Lecture sécurisée</span>
                     </button>
                     <button
                       type="button"
@@ -681,6 +682,23 @@ function AddDocumentForm({ onClose, onCreate, levels, categories }: {
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">FCFA</span>
                       </div>
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
+
+              {/* Prix de téléchargement — affiché seulement si Gratuit */}
+              {form.watch("isFree") && (
+                <FormField control={form.control} name="downloadPrice" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prix de téléchargement (FCFA) <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input type="number" min={0} step={100} placeholder="0 = gratuit aussi" className="pr-14" {...field} />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">FCFA</span>
+                      </div>
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">Lecture toujours gratuite. Si renseigné, un bouton de téléchargement payant sera affiché.</p>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -829,7 +847,7 @@ export default function Admin() {
   const [showLevelForm, setShowLevelForm] = useState(false);
   const [expandedDocId, setExpandedDocId] = useState<number | null>(null);
 
-  type EditDoc = { id: number; title: string; price: number; description: string; isFeatured: boolean };
+  type EditDoc = { id: number; title: string; price: number; downloadPrice: number; description: string; isFeatured: boolean };
   type EditCat = { id: number; name: string; slug: string };
   type EditLevel = { id: number; name: string; group: string; sortOrder: number };
   const [editDoc, setEditDoc] = useState<EditDoc | null>(null);
@@ -923,6 +941,7 @@ export default function Admin() {
             docType: data.docType || undefined,
             categoryId: data.categoryId ? Number(data.categoryId) : undefined,
             price: data.price,
+            downloadPrice: data.isFree && data.downloadPrice ? data.downloadPrice : undefined,
             isFeatured: data.isFeatured ?? false,
             previewUrl,
           },
@@ -947,7 +966,7 @@ export default function Admin() {
   const handleUpdateDoc = () => {
     if (!editDoc) return;
     updateDoc.mutate(
-      { id: editDoc.id, data: { title: editDoc.title, price: editDoc.price, description: editDoc.description, isFeatured: editDoc.isFeatured } },
+      { id: editDoc.id, data: { title: editDoc.title, price: editDoc.price, downloadPrice: editDoc.downloadPrice || undefined, description: editDoc.description, isFeatured: editDoc.isFeatured } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey({ limit: 100 }) });
@@ -1261,7 +1280,7 @@ export default function Admin() {
                         <Button
                           variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
                           title="Modifier"
-                          onClick={() => setEditDoc(editDoc?.id === d.id ? null : { id: d.id, title: d.title, price: d.price, description: d.description ?? "", isFeatured: d.isFeatured })}
+                          onClick={() => setEditDoc(editDoc?.id === d.id ? null : { id: d.id, title: d.title, price: d.price, downloadPrice: (d as any).downloadPrice ?? 0, description: d.description ?? "", isFeatured: d.isFeatured })}
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
@@ -1282,9 +1301,15 @@ export default function Admin() {
                           </div>
                           <div>
                             <label className="text-xs font-medium block mb-1">Prix (FCFA)</label>
-                            <Input type="number" min={100} step={100} value={editDoc.price} onChange={e => setEditDoc({ ...editDoc, price: Number(e.target.value) })} className="h-9 text-sm" />
+                            <Input type="number" min={0} step={100} value={editDoc.price} onChange={e => setEditDoc({ ...editDoc, price: Number(e.target.value) })} className="h-9 text-sm" />
                           </div>
                         </div>
+                        {editDoc.price === 0 && (
+                          <div>
+                            <label className="text-xs font-medium block mb-1">Prix de téléchargement (FCFA) <span className="text-muted-foreground font-normal">— optionnel, pour doc gratuit</span></label>
+                            <Input type="number" min={0} step={100} placeholder="0 = pas de téléchargement payant" value={editDoc.downloadPrice} onChange={e => setEditDoc({ ...editDoc, downloadPrice: Number(e.target.value) })} className="h-9 text-sm" />
+                          </div>
+                        )}
                         <div>
                           <label className="text-xs font-medium block mb-1">Description</label>
                           <Textarea value={editDoc.description} onChange={e => setEditDoc({ ...editDoc, description: e.target.value })} className="resize-none text-sm" rows={2} />

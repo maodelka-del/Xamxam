@@ -5,6 +5,7 @@ import { useGetDocument, useGetDocumentFiles, getGetDocumentQueryKey, getGetDocu
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { getCategoryStyle } from "@/components/DocumentCard";
+import SecurePDFViewer from "@/components/SecurePDFViewer";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -70,15 +71,17 @@ export default function DocumentReader() {
   }
 
   const isFree = doc.price === 0;
+  const downloadPrice = (doc as any).downloadPrice as number | null | undefined;
+  const hasDownloadOffer = isFree && typeof downloadPrice === "number" && downloadPrice > 0;
   const style = getCategoryStyle(doc.categoryName);
   const CatIcon = style.icon as React.ElementType;
   const contentType = getContentType(doc.categoryName);
   const FormatIcon = FORMAT_ICONS[contentType];
   const formatLabel = FORMAT_LABELS[contentType];
 
-  const isPdf = contentType === "pdf" && doc.previewUrl?.toLowerCase().endsWith(".pdf");
   const isAudio = contentType === "audio";
   const isVideo = contentType === "video";
+  const isPdf = contentType === "pdf" || contentType === "archive";
 
   const freeFiles = files ?? [];
   const safeIndex = Math.min(selectedIndex, Math.max(0, freeFiles.length - 1));
@@ -103,7 +106,7 @@ export default function DocumentReader() {
           <p className="text-sm font-semibold text-white truncate">{doc.title}</p>
           {isFree && (
             <span className="flex-shrink-0 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-              <Eye className="w-2.5 h-2.5" /> Lecture seule
+              <Eye className="w-2.5 h-2.5" /> Lecture sécurisée
             </span>
           )}
           {isFree && freeFiles.length > 1 && (
@@ -128,7 +131,7 @@ export default function DocumentReader() {
       <div className="flex-1 flex">
         <div className="flex-1 flex flex-col items-center overflow-auto py-8 px-4">
 
-          {/* ── FREE DOCUMENT: show actual files ── */}
+          {/* ── FREE DOCUMENT ── */}
           {isFree && (
             <>
               {freeFiles.length > 0 ? (
@@ -137,7 +140,6 @@ export default function DocumentReader() {
                   {/* Multi-file navigation */}
                   {freeFiles.length > 1 && (
                     <div className="mb-4">
-                      {/* Tabs for ≤5 files */}
                       {freeFiles.length <= 5 ? (
                         <div className="flex gap-2 flex-wrap">
                           {freeFiles.map((f, i) => (
@@ -156,7 +158,6 @@ export default function DocumentReader() {
                           ))}
                         </div>
                       ) : (
-                        /* Prev / Next navigation for many files */
                         <div className="flex items-center justify-between bg-zinc-800 rounded-xl px-4 py-2.5">
                           <button
                             onClick={() => setSelectedIndex(Math.max(0, safeIndex - 1))}
@@ -181,54 +182,113 @@ export default function DocumentReader() {
                     </div>
                   )}
 
-                  {/* File viewer */}
-                  {currentFileUrl && (
-                    <iframe
-                      key={currentFileUrl}
-                      src={`${currentFileUrl}#toolbar=0&navpanes=0&scrollbar=1`}
-                      className="w-full rounded-lg shadow-2xl border-0"
-                      style={{ minHeight: "85vh" }}
+                  {/* Secure file viewer — PDF.js canvas (no download) */}
+                  {currentFileUrl && isPdf && (
+                    <SecurePDFViewer
+                      url={currentFileUrl}
                       title={currentFile?.fileName ?? doc.title}
+                      className="w-full"
                     />
+                  )}
+                  {currentFileUrl && isAudio && (
+                    <div className="bg-zinc-800 rounded-2xl p-6">
+                      <Music className="w-12 h-12 text-zinc-400 mx-auto mb-3" />
+                      <audio
+                        controls
+                        className="w-full"
+                        style={{ colorScheme: "dark" }}
+                        controlsList="nodownload"
+                        onContextMenu={(e) => e.preventDefault()}
+                      >
+                        <source src={currentFileUrl} />
+                      </audio>
+                    </div>
+                  )}
+                  {currentFileUrl && isVideo && (
+                    <div className="bg-zinc-800 rounded-2xl overflow-hidden">
+                      <video
+                        controls
+                        className="w-full"
+                        style={{ maxHeight: "70vh" }}
+                        controlsList="nodownload"
+                        onContextMenu={(e) => e.preventDefault()}
+                      >
+                        <source src={currentFileUrl} />
+                      </video>
+                    </div>
+                  )}
+                  {currentFileUrl && !isPdf && !isAudio && !isVideo && (
+                    <div className={`rounded-2xl bg-gradient-to-br ${style.gradient} p-16 text-center`}>
+                      <FormatIcon className="w-20 h-20 text-white/80 mx-auto mb-4" />
+                      <h2 className="text-white font-bold text-xl mb-2">{doc.title}</h2>
+                      <p className="text-white/70 text-sm">Fichier disponible — lecture sécurisée uniquement</p>
+                    </div>
                   )}
 
                   <div className="mt-4 bg-green-900/30 border border-green-700/40 rounded-xl px-4 py-3 flex items-center gap-2">
                     <Eye className="w-4 h-4 text-green-400 flex-shrink-0" />
                     <p className="text-green-300 text-xs">
-                      Ce document est gratuit et disponible en lecture seule. Le téléchargement n'est pas autorisé.
+                      Ce document est lisible gratuitement dans l'application. Le fichier est rendu de manière sécurisée — téléchargement désactivé.
                     </p>
                   </div>
                 </div>
               ) : (
-                /* Free but no file uploaded yet — show preview fallback */
+                /* Free but no file uploaded yet */
                 <div className="w-full max-w-2xl">
-                  {isPdf && doc.previewUrl ? (
-                    <iframe
-                      src={`${doc.previewUrl}#toolbar=0&navpanes=0`}
-                      className="w-full max-w-3xl rounded-lg shadow-2xl border-0"
-                      style={{ minHeight: "85vh" }}
-                      title={doc.title}
-                    />
-                  ) : (
-                    <div className={`rounded-2xl bg-gradient-to-br ${style.gradient} p-16 text-center`}>
-                      <FormatIcon className="w-20 h-20 text-white/80 mx-auto mb-4" />
-                      <h2 className="text-white font-bold text-xl mb-2">{doc.title}</h2>
-                      <p className="text-white/70 text-sm">Le fichier sera bientôt disponible</p>
-                    </div>
-                  )}
+                  <div className={`rounded-2xl bg-gradient-to-br ${style.gradient} p-16 text-center`}>
+                    <FormatIcon className="w-20 h-20 text-white/80 mx-auto mb-4" />
+                    <h2 className="text-white font-bold text-xl mb-2">{doc.title}</h2>
+                    <p className="text-white/70 text-sm">Le fichier sera bientôt disponible</p>
+                  </div>
                   <div className="mt-4 bg-green-900/30 border border-green-700/40 rounded-xl px-4 py-3 flex items-center gap-2">
                     <Eye className="w-4 h-4 text-green-400 flex-shrink-0" />
                     <p className="text-green-300 text-xs">Ce document est gratuit — lecture en ligne uniquement.</p>
                   </div>
                 </div>
               )}
+
+              {/* Download offer for free docs */}
+              {hasDownloadOffer && (
+                <div className="w-full max-w-3xl mt-6">
+                  <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div className="flex-1">
+                      <p className="text-white font-semibold text-sm mb-1 flex items-center gap-2">
+                        <Download className="w-4 h-4 text-primary" />
+                        Télécharger ce document
+                      </p>
+                      <p className="text-zinc-400 text-xs">
+                        Obtenez le fichier original sur votre appareil pour une utilisation hors-ligne.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-white font-bold text-lg">
+                        {downloadPrice!.toLocaleString("fr-FR")} <span className="text-sm text-zinc-400">FCFA</span>
+                      </span>
+                      {inCart ? (
+                        <Link href="/cart">
+                          <Button size="sm" variant="outline" className="gap-1.5 border-zinc-600 text-white hover:bg-zinc-700 text-xs">
+                            <ShoppingCart className="w-3.5 h-3.5" /> Voir panier
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={() => addItem({ id: doc.id, title: `${doc.title} (téléchargement)`, subject: doc.subject, level: doc.level, price: downloadPrice! })}
+                        >
+                          <Download className="w-3.5 h-3.5" /> Acheter le téléchargement
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
-          {/* ── PAID DOCUMENT: existing preview + paywall ── */}
+          {/* ── PAID DOCUMENT: preview + paywall ── */}
           {!isFree && (
             <>
-              {/* AUDIO PLAYER */}
               {isAudio && (
                 <div className="w-full max-w-xl">
                   <div className={`rounded-2xl bg-gradient-to-br ${style.gradient} p-8 text-center mb-6`}>
@@ -239,9 +299,8 @@ export default function DocumentReader() {
                   {doc.previewUrl ? (
                     <div className="bg-zinc-800 rounded-2xl p-6">
                       <p className="text-zinc-400 text-xs mb-3 text-center uppercase tracking-wider">Extrait gratuit</p>
-                      <audio controls className="w-full" style={{ colorScheme: "dark" }}>
+                      <audio controls className="w-full" style={{ colorScheme: "dark" }} controlsList="nodownload">
                         <source src={doc.previewUrl} />
-                        Votre navigateur ne supporte pas la lecture audio.
                       </audio>
                       <div className="mt-4 flex items-center gap-2 bg-zinc-700/50 rounded-xl px-4 py-3">
                         <Lock className="w-4 h-4 text-zinc-400 flex-shrink-0" />
@@ -257,14 +316,12 @@ export default function DocumentReader() {
                 </div>
               )}
 
-              {/* VIDEO PLAYER */}
               {isVideo && (
                 <div className="w-full max-w-2xl">
                   {doc.previewUrl ? (
                     <div className="bg-zinc-800 rounded-2xl overflow-hidden">
-                      <video controls className="w-full" style={{ maxHeight: "50vh" }}>
+                      <video controls className="w-full" style={{ maxHeight: "50vh" }} controlsList="nodownload">
                         <source src={doc.previewUrl} />
-                        Votre navigateur ne supporte pas la lecture vidéo.
                       </video>
                       <div className="px-4 py-3 flex items-center gap-2">
                         <Lock className="w-4 h-4 text-zinc-400 flex-shrink-0" />
@@ -281,65 +338,26 @@ export default function DocumentReader() {
                 </div>
               )}
 
-              {/* PDF VIEWER */}
-              {!isAudio && !isVideo && doc.previewUrl && isPdf && (
-                <iframe
-                  src={doc.previewUrl}
-                  className="w-full max-w-3xl rounded-lg shadow-2xl border-0"
-                  style={{ minHeight: "85vh" }}
-                  title={doc.title}
-                />
-              )}
-
-              {/* IMAGE PREVIEW */}
-              {!isAudio && !isVideo && doc.previewUrl && !isPdf && (
-                <div className="w-full max-w-2xl space-y-4">
-                  <div className="relative rounded-xl overflow-hidden shadow-2xl">
-                    <img src={doc.previewUrl} alt={doc.title} className="w-full" />
-                    <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-zinc-900 via-zinc-900/80 to-transparent flex flex-col items-center justify-end pb-8 px-6">
-                      <div className="text-center">
-                        <Lock className="w-8 h-8 text-white/60 mx-auto mb-2" />
-                        <p className="text-white font-semibold text-sm mb-1">Aperçu limité</p>
-                        <p className="text-white/60 text-xs mb-4">Achetez pour accéder au contenu complet</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* NO PREVIEW — Placeholder selon type */}
               {!isAudio && !isVideo && !doc.previewUrl && (
                 <div className="w-full max-w-2xl">
-                  {contentType === "pdf" || contentType === "archive" ? (
-                    <div className="space-y-3">
-                      {[1, 2, 3].map((page) => (
-                        <div key={page} className={`bg-white rounded-xl shadow-lg p-8 ${page > 1 ? "opacity-40 blur-[2px]" : ""}`}>
-                          {page === 1 ? (
-                            <>
-                              <div className="h-4 bg-gray-800 rounded w-2/3 mb-6" />
-                              <div className="space-y-2 mb-4">
-                                {[1,2,3,4,5].map(i => <div key={i} className="h-2.5 bg-gray-200 rounded" style={{ width: `${70 + (i * 7) % 30}%` }} />)}
-                              </div>
-                              <div className="h-3 bg-gray-700 rounded w-1/2 mb-3 mt-6" />
-                              <div className="space-y-2">
-                                {[1,2,3].map(i => <div key={i} className="h-2.5 bg-gray-200 rounded" style={{ width: `${60 + (i * 13) % 40}%` }} />)}
-                              </div>
-                            </>
-                          ) : (
-                            <div className="space-y-2">
-                              {[1,2,3,4].map(i => <div key={i} className="h-2.5 bg-gray-200 rounded" style={{ width: `${50 + (i * 11) % 50}%` }} />)}
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((page) => (
+                      <div key={page} className={`bg-white rounded-xl shadow-lg p-8 ${page > 1 ? "opacity-40 blur-[2px]" : ""}`}>
+                        {page === 1 ? (
+                          <>
+                            <div className="h-4 bg-gray-800 rounded w-2/3 mb-6" />
+                            <div className="space-y-2 mb-4">
+                              {[1,2,3,4,5].map(i => <div key={i} className="h-2.5 bg-gray-200 rounded" style={{ width: `${70 + (i * 7) % 30}%` }} />)}
                             </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className={`rounded-2xl bg-gradient-to-br ${style.gradient} p-16 text-center`}>
-                      <FormatIcon className="w-20 h-20 text-white/80 mx-auto mb-4" />
-                      <h2 className="text-white font-bold text-xl mb-2">{doc.title}</h2>
-                      <p className="text-white/60 text-sm">Achetez pour accéder au fichier complet</p>
-                    </div>
-                  )}
+                          </>
+                        ) : (
+                          <div className="space-y-2">
+                            {[1,2,3,4].map(i => <div key={i} className="h-2.5 bg-gray-200 rounded" style={{ width: `${50 + (i * 11) % 50}%` }} />)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

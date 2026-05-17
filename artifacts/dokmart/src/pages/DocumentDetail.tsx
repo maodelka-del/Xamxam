@@ -309,7 +309,12 @@ export default function DocumentDetail() {
                   <span className="text-3xl font-bold text-green-700" data-testid="text-price-detail">Gratuit</span>
                   <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5 rounded-full border border-green-300">🆓</span>
                 </div>
-                <p className="text-xs text-green-700/80">Lisible directement dans l'application, sans paiement</p>
+                <p className="text-xs text-green-700/80">Lecture sécurisée directement dans l'application</p>
+                {typeof (doc as any).downloadPrice === "number" && (doc as any).downloadPrice > 0 && (
+                  <p className="text-xs text-green-700 mt-1 font-medium">
+                    💾 Téléchargement disponible pour {((doc as any).downloadPrice as number).toLocaleString("fr-FR")} FCFA
+                  </p>
+                )}
               </div>
             ) : (
               <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-xl p-4 border border-primary/20">
