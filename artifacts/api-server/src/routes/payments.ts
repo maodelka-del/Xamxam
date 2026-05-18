@@ -61,6 +61,147 @@ function getAppBaseUrl(): string {
 type DpProvider = "WAVE" | "ORANGE_MONEY";
 const VALID_PROVIDERS: DpProvider[] = ["WAVE", "ORANGE_MONEY"];
 
+// ─── POST /payments/initiate-download ─────────────────────────────────────────
+// Paid download of a free document (uses downloadPrice field)
+router.post("/payments/initiate-download", async (req: Request, res: Response): Promise<void> => {
+  const { documentId, customerName, customerEmail, customerPhone, provider } = req.body as {
+    documentId?:    number;
+    customerName?:  string;
+    customerEmail?: string;
+    customerPhone?: string;
+    provider?:      string;
+  };
+
+  if (!documentId || !customerName || !customerEmail || !customerPhone) {
+    res.status(400).json({ error: "Paramètres manquants (documentId, nom, email, téléphone)" });
+    return;
+  }
+
+  const dpProvider: DpProvider = VALID_PROVIDERS.includes((provider ?? "").toUpperCase() as DpProvider)
+    ? (provider!.toUpperCase() as DpProvider)
+    : "WAVE";
+
+  const [doc] = await db.select().from(documentsTable).where(eq(documentsTable.id, documentId)).limit(1);
+
+  if (!doc) {
+    res.status(404).json({ error: "Document introuvable" });
+    return;
+  }
+
+  if (doc.price !== 0) {
+    res.status(400).json({ error: "Ce document n'est pas gratuit — utilisez le panier pour l'acheter" });
+    return;
+  }
+
+  const downloadPrice = (doc as any).downloadPrice as number | null;
+  if (!downloadPrice || downloadPrice <= 0) {
+    res.status(400).json({ error: "Ce document ne propose pas de téléchargement payant" });
+    return;
+  }
+
+  const [order] = await db
+    .insert(ordersTable)
+    .values({
+      customerName,
+      customerEmail,
+      customerPhone,
+      totalAmount:   downloadPrice,
+      status:        "pending",
+      paymentMethod: "diamanopay",
+      adminNote:     `Téléchargement payant — document #${doc.id} "${doc.title}"`,
+    })
+    .returning();
+
+  await db.insert(orderItemsTable).values([{ orderId: order.id, documentId: doc.id, price: downloadPrice }]);
+
+  const base       = getAppBaseUrl();
+  const successUrl = `${base}/order/${order.id}?email=${encodeURIComponent(customerEmail)}&payment=success`;
+  const cancelUrl  = `${base}/order/${order.id}?email=${encodeURIComponent(customerEmail)}&payment=cancelled`;
+  const webhookUrl = `${base}/api/payments/webhook`;
+
+  logger.info({ base, successUrl, webhookUrl }, "Download payment URLs constructed");
+
+  let checkoutUrl: string;
+  let chargeId:    string;
+
+  try {
+    const token = await getAccessToken();
+
+    const payload = {
+      amount:       downloadPrice,
+      currency:     "XOF",
+      description:  `Téléchargement #${order.id} — ${doc.title.slice(0, 120)}`,
+      provider:     dpProvider,
+      customer:     { name: customerName, email: customerEmail, phone: customerPhone },
+      metadata:     { orderId: order.id, customerEmail },
+      successUrl,   success_url: successUrl,
+      returnUrl:    successUrl,  return_url: successUrl,
+      redirectUrl:  successUrl,  redirect_url: successUrl,
+      callbackUrl:  successUrl,  callback_url: successUrl,
+      cancelUrl,    cancel_url: cancelUrl,
+      failUrl:      cancelUrl,   fail_url: cancelUrl,
+      webhookUrl,   webhook_url: webhookUrl,
+      notifyUrl:    webhookUrl,  notify_url: webhookUrl,
+    };
+
+    logger.info({ payload: { ...payload, customer: "REDACTED" } }, "DiamanoPay download charge payload");
+
+    const dpRes = await fetch(`${DIAMANOPAY_API_URL}/api/charges`, {
+      method:  "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body:    JSON.stringify(payload),
+    });
+
+    const rawResponseText = await dpRes.text();
+    logger.info({ status: dpRes.status, rawBody: rawResponseText }, "DiamanoPay download raw response");
+
+    if (!dpRes.ok) {
+      await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+      await db.delete(ordersTable).where(eq(ordersTable.id, order.id));
+      res.status(502).json({ error: "Erreur lors de l'initialisation du paiement. Veuillez réessayer." });
+      return;
+    }
+
+    let dpData: Record<string, unknown>;
+    try { dpData = JSON.parse(rawResponseText); }
+    catch {
+      await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+      await db.delete(ordersTable).where(eq(ordersTable.id, order.id));
+      res.status(502).json({ error: "Réponse DiamanoPay invalide." });
+      return;
+    }
+
+    chargeId = (dpData.chargeId ?? dpData.charge_id ?? dpData.id ?? dpData.reference ?? dpData.transactionId ?? "") as string;
+    checkoutUrl = (
+      dpData.paymentUrl ?? dpData.payment_url ?? dpData.checkout_url ??
+      dpData.checkoutUrl ?? dpData.redirectUrl ?? dpData.redirect_url ??
+      dpData.url ?? dpData.link ?? dpData.paymentLink ?? dpData.payment_link ?? ""
+    ) as string;
+
+    if (!checkoutUrl) {
+      await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+      await db.delete(ordersTable).where(eq(ordersTable.id, order.id));
+      res.status(502).json({ error: "Réponse DiamanoPay invalide. Veuillez réessayer." });
+      return;
+    }
+  } catch (err) {
+    logger.error({ err }, "DiamanoPay download API call failed");
+    await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+    await db.delete(ordersTable).where(eq(ordersTable.id, order.id));
+    res.status(502).json({ error: "Impossible de joindre le service de paiement. Veuillez réessayer." });
+    return;
+  }
+
+  await db
+    .update(ordersTable)
+    .set({ diamanopayChargeId: chargeId, diamanopayCheckoutUrl: checkoutUrl })
+    .where(eq(ordersTable.id, order.id));
+
+  logger.info({ orderId: order.id, chargeId, downloadPrice, provider: dpProvider }, "DiamanoPay download charge created");
+
+  res.status(201).json({ orderId: order.id, checkoutUrl, totalAmount: downloadPrice, chargeId });
+});
+
 // ─── GET /payments/debug-url (development helper — shows what URLs are built) ─
 router.get("/payments/debug-url", (_req, res) => {
   const base = getAppBaseUrl();

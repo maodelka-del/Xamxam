@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useRoute, Link } from "wouter";
 import { ArrowLeft, ShoppingCart, Check, FileText, Download, Star, Lock, Eye, Users, TrendingUp, BookOpen, Music, Layers, Code2, Image, Video, Globe, PlayCircle, BookMarked } from "lucide-react";
 import { useGetDocument, useListDocuments, getGetDocumentQueryKey, getListDocumentsQueryKey } from "@workspace/api-client-react";
@@ -5,6 +6,7 @@ import { DocumentCard, getCategoryStyle } from "@/components/DocumentCard";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import DownloadPaymentDialog from "@/components/DownloadPaymentDialog";
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   cours: "Cours",
@@ -170,6 +172,7 @@ export default function DocumentDetail() {
   const { data: doc, isLoading } = useGetDocument(id, { query: { enabled: !!id, queryKey: getGetDocumentQueryKey(id) } });
   const { addItem, isInCart } = useCart();
   const inCart = isInCart(id);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   const { data: related } = useListDocuments(
     { level: doc?.level, limit: 5 },
@@ -311,9 +314,12 @@ export default function DocumentDetail() {
                 </div>
                 <p className="text-xs text-green-700/80">Lecture sécurisée directement dans l'application</p>
                 {typeof (doc as any).downloadPrice === "number" && (doc as any).downloadPrice > 0 && (
-                  <p className="text-xs text-green-700 mt-1 font-medium">
-                    💾 Téléchargement disponible pour {((doc as any).downloadPrice as number).toLocaleString("fr-FR")} FCFA
-                  </p>
+                  <div className="mt-2 pt-2 border-t border-green-200">
+                    <p className="text-xs text-green-800 font-semibold flex items-center gap-1">
+                      <Download className="w-3.5 h-3.5" />
+                      Téléchargement disponible : {((doc as any).downloadPrice as number).toLocaleString("fr-FR")} FCFA
+                    </p>
+                  </div>
                 )}
               </div>
             ) : (
@@ -332,12 +338,25 @@ export default function DocumentDetail() {
 
             <div className="flex flex-col gap-3">
               {doc.price === 0 ? (
-                <Link href={`/documents/${doc.id}/read`}>
-                  <Button size="lg" className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white">
-                    <BookOpen className="w-5 h-5" />
-                    Lire maintenant — c'est gratuit
-                  </Button>
-                </Link>
+                <>
+                  <Link href={`/documents/${doc.id}/read`}>
+                    <Button size="lg" className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white">
+                      <BookOpen className="w-5 h-5" />
+                      Lire maintenant — c'est gratuit
+                    </Button>
+                  </Link>
+                  {typeof (doc as any).downloadPrice === "number" && (doc as any).downloadPrice > 0 && (
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full gap-2 border-primary/40 text-primary hover:bg-primary/5"
+                      onClick={() => setShowDownloadDialog(true)}
+                    >
+                      <Download className="w-5 h-5" />
+                      Télécharger — {((doc as any).downloadPrice as number).toLocaleString("fr-FR")} FCFA
+                    </Button>
+                  )}
+                </>
               ) : (
                 <>
                   <div className="flex flex-col sm:flex-row gap-3">
@@ -442,6 +461,17 @@ export default function DocumentDetail() {
           </div>
         )}
       </div>
+
+      {/* Download payment dialog — only shown for free docs with downloadPrice */}
+      {doc.price === 0 && typeof (doc as any).downloadPrice === "number" && (doc as any).downloadPrice > 0 && (
+        <DownloadPaymentDialog
+          open={showDownloadDialog}
+          onClose={() => setShowDownloadDialog(false)}
+          documentId={doc.id}
+          documentTitle={doc.title}
+          downloadPrice={(doc as any).downloadPrice as number}
+        />
+      )}
     </div>
   );
 }
