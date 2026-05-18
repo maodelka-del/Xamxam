@@ -79,11 +79,15 @@ function PDFPage({
       try {
         const page = await pdf.getPage(pageNum);
         const baseViewport = page.getViewport({ scale: 1 });
-        const scale = renderWidth / baseViewport.width;
+        const dpr = window.devicePixelRatio || 1;
+        const scale = (renderWidth / baseViewport.width) * dpr;
         const viewport = page.getViewport({ scale });
 
+        // Physical pixels = DPR × CSS pixels → sharp on HiDPI/Retina screens
         canvas.width = viewport.width;
         canvas.height = viewport.height;
+        canvas.style.width = "100%";
+        canvas.style.height = "auto";
 
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
