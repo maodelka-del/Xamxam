@@ -203,6 +203,52 @@ export default function SecurePDFViewer({ url, title = "Document", className = "
     };
   }, []);
 
+  // Pinch-to-zoom touch handling
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let startDist = 0;
+    let startZoom = 1;
+
+    const getDistance = (touches: TouchList) => {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        startDist = getDistance(e.touches);
+        setZoom((z) => { startZoom = z; return z; });
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault(); // block native browser zoom
+        const dist = getDistance(e.touches);
+        if (startDist === 0) return;
+        const ratio = dist / startDist;
+        const next = Math.min(3.0, Math.max(0.5, startZoom * ratio));
+        setZoom(Math.round(next * 100) / 100);
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) startDist = 0;
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+
   const zoomIn = useCallback(() => {
     setZoom((z) => {
       const next = ZOOM_STEPS.find((s) => s > z);
